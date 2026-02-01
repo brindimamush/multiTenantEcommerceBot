@@ -12,21 +12,29 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/telegram-login")
 async def telegram_login(
-    init_data: str,
-    tenant_slug: str,
+    init_data:str,
+    tenant_slug:str,
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Authenticates a user using Telegram WebApp initData.
+    Docstring for telegram_login
+    Authenticates a user using Telegram Webapp initData.
 
     Responsibilities:
     - Resolve tenant
     - Verify Telegram signature
     - Create or fetch user
     - Issue JWT
+
+    :param init_data: Description
+    :type init_data: str
+    :param tenant_slug: Description
+    :type tenant_slug: str
+    :param db: Description
+    :type db: AsyncSession
     """
 
-    # 1️⃣ Resolve tenant using slug (safe public identifier)
+    # Resolve tenant using slug (safe public identifier)
     tenant_stmt = select(Tenant).where(
         Tenant.slug == tenant_slug,
         Tenant.is_active == True
@@ -35,17 +43,17 @@ async def telegram_login(
 
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
-
-    # 2️⃣ Verify Telegram signature using tenant's bot token
+    
+    # Verify Telegram signature using tenant's bot token
     try:
         telegram_data = verify_telegram_init_data(
             init_data=init_data,
-            bot_token=tenant.telegram_bot_token
+            bot_token=str(tenant.telegram_bot_token),
         )
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
-
-    # 3️⃣ Extract Telegram user info
+    
+    # Extract Telegram user info
     telegram_user_id = telegram_data.get("user[id]")
     full_name = telegram_data.get("user[first_name]")
 
@@ -54,8 +62,8 @@ async def telegram_login(
             status_code=400,
             detail="Invalid Telegram user data"
         )
-
-    # 4️⃣ Fetch or create user within this tenant
+    
+    # Feth or create user within this tenant
     user_stmt = select(User).where(
         User.tenant_id == tenant.id,
         User.telegram_user_id == telegram_user_id
@@ -73,7 +81,7 @@ async def telegram_login(
         await db.commit()
         await db.refresh(user)
 
-    # 5️⃣ Issue JWT containing tenant + user context
+    # Issue JWT containing tenant + user context
     access_token = create_access_token(
         data={
             "tenant_id": str(tenant.id),
