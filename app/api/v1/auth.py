@@ -48,7 +48,7 @@ async def telegram_login(
     try:
         telegram_data = verify_telegram_init_data(
             init_data=init_data,
-            bot_token=str(tenant.telegram_bot_token),
+            bot_token=tenant.telegram_bot_token,
         )
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
