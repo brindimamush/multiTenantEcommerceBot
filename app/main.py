@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from app.middlewares.auth import AuthMiddleware
 from app.middlewares.tenant import TenantMiddleware
 from app.api.v1.auth import router as auth_router
 
@@ -6,6 +7,10 @@ def create_app() -> FastAPI:
     """
     Docstring for create_app
     Application factory.
+
+    Middleware order is CRITICAL:
+    1. AuthMiddleware -> resolves JWT
+    2. TenantMiddleware -> enforces tenant presence
 
     Middleware is registered here so:
     - It applies globally
@@ -17,8 +22,10 @@ def create_app() -> FastAPI:
         title="Telegram Multitenant Commerce",
         version="0.1.0"
     )
+    # Authentication MUST come first
+    app.add_middleware(AuthMiddleware)
 
-    # Tenant middleware MUST rub before routers
+    # Tenant enforcement comes after auth
     app.add_middleware(TenantMiddleware)
 
     # Authentication routes
