@@ -1,6 +1,9 @@
 from sqlalchemy import String, Boolean
 from app.models.base import Base
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import UUID
+import uuid
+
 
 class Tenant(Base):
 
@@ -14,6 +17,7 @@ class Tenant(Base):
     """
     __tablename__ = "tenants"
 
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     # public name of the store
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
