@@ -1,37 +1,62 @@
-from sqlalchemy import Column, String, Numeric, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
-from app.models.base import Base
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import ForeignKey, Enum, Numeric
+from uuid import UUID
+from decimal import Decimal
+import enum
 
-class Order(Base):
-    """
-    Docstring for Order
+from app.models.base import Base, UUIDMixin, TimestampMixin
 
-    Represents a purchase made by a user.
+"""
+Orders represent a checkout session.
 
-    Orders are tenant-bound and immutable after payment.
-    """
+Important rules:
+- Belongs to a tenant
+- Belongs to a user
+- Price snapshot is stored (never recomputed)
+"""
 
+class OrderStatus(enum.Enum):
+    CART = "cart"
+    PENDING_PAYMENT = "pending_payment"
+    PAID = "paid"
+    FULFILLED = "fulfilled"
+    CANCELLED = "cancelled"
+
+
+class Order(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "orders"
 
-    # Tenant isolation
-    tenant_id = Column(
-        UUID(as_uuid=True),
+    # Tenant isolation (MANDATORY)
+    tenant_id: Mapped[UUID] = mapped_column(
         ForeignKey("tenants.id", ondelete="CASCADE"),
-        nullable=False
+        index=True,
+        nullable=False,
     )
 
-    # Who placed the order
-    user_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True
+    # User who placed the order
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
     )
 
-    # Total order value
-    total_amount = Column(Numeric(10,2), nullable=False)
+    # Order state machine
+    status: Mapped[OrderStatus] = mapped_column(
+        Enum(OrderStatus),
+        default=OrderStatus.CART,
+        nullable=False,
+    )
 
-    # Order status lifecycle
-    status = Column(
-        String(50),
-        default="pending" # pending, paid, cancelled, shipped
+    # Total price snapshot (sum of order items)
+    total_amount: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2),
+        default=0,
+        nullable=False,
+    )
+
+    # Relationship to items
+    items = relationship(
+        "OrderItem",
+        back_populates="order",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
